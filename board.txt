@@ -1,0 +1,209 @@
+로그인(Auth, Authentication(식별) + Authorization(권한을 가지고 있는지에 대한 여부))
+
+로그인(?)
+유저(X)
+
+회사 홈페이지: 서밋 폼(submit form)
+
+이름, 이메일, 비밀번호(로그인 없이 서버의 특정 엔드포인트 호출)
+
+POST https://my-service.com/comments {
+  postId: '1234',
+  email: 'my@gmail.com',
+  password: 'qwerqwer',
+  commentBody: '잘 읽었습니다',
+}
+
+***
+
+로그인 + 유저
+
+POST https://my-service.com/comments {
+  postId: '1234',
+  commentBody: '잘 읽었습니다',
+  userId: 'alice', // alice만 적으면, 도용을 할 수 있음
+  password: '12341234',
+}
+
+Users DB에서 쿼리, id와 password가 동일한지 확인
+
+***
+
+password를 리퀘스트를 할 때마다 사용을 하면, password를 저장하고 있어야 함.
+ localStorage, cookie
+
+cookie가 잘 털림.
+
+1. password를 돌려씀.
+2. password는 빨리 안 바뀜
+3. password가 (생각보다) 많이 짧음
+
+***
+
+그러면 password를 저장하고있는 것 <= 잘못되었다.
+
+전달(X)
+저장(O)
+
+TOKEN = 임시 비밀번호
+
+1. 매 리퀘스트마다 ID와 PW를 받는다
+2. 어떤 유저인지 확인한다.
+
+1. 유저가 ID와 PW를 주면, 토큰으로 바꿔준다.
+2. 매 리퀘스트마다 토큰을 받는다
+
+토큰의 특징
+1. 길어요(128)
+2. 무작위성 => 서비스마다 겹칠 일이 없다.
+3. 로그인할때마다 토큰이 바뀜.
+
+***
+
+1. DB 접근없이 복호화 가능한 토큰
+2. 리프레시 토큰
+
+***
+
+POST login {
+  email: 'asdf@gmail.com',
+  password: '12341234',
+} => { token: 'asfeiwgrewjfoewefvkjnewoifjewoifjewoifjoewjfoiewnvevrwnfoiewnfewoifewio' }
+
+POST comments {
+  postId: '1234',
+  commentBody: '내용',
+  token: 'asfeiwgrewjfoewefvkjnewoifjewoifjewoifjoewjfoiewnvevrwnfoiewnfewoifewio',
+}
+
+HTTP header
+  HTTP 버전(1.0, 1.1, 2.0)
+  메소드(POST, GET, DELETE ...)
+  headers CONTENT-TYPE, EXPIRES-AT CACHE-POLICY
+HTTP body
+  JSON
+
+HTTP Authorization: accessToken
+
+// X
+await axios({
+  method: 'POST',
+  url: 'http://localhost/comments',
+  data: {
+    postId: '1234',
+    commentBody: '안녕',
+    token: 'asfeiwgrewjfoewefvkjnewoifjewoifjewoifjoewjfoiewnvevrwnfoiewnfewoifewio', 
+  }
+})
+
+// O
+await axios({
+  method: 'POST',
+  url: 'http://localhost/comments',
+  headers: {
+    // Authorization: 'asfeiwgrewjfoewefvkjnewoifjewoifjewoifjoewjfoiewnvevrwnfoiewnfewoifewio',
+    AUthoRIzaTION: window.localStorage.getItem('token'),
+  },
+  data: {
+    postId: '1234',
+    commentBody: '안녕',
+  }
+})
+
+***
+
+로그인: 토큰 가져오기
+
+email, password
+
+
+const axiosResult = await axios({
+  method: 'POST',
+  url: 'http://localhost/login',
+  data: {
+    email,
+    password,
+  },
+});
+
+const {token} = axiosResult.data;
+
+window.localStorage.setItem('token', token);
+
+1. GET은 캐싱될 수 있음
+  1. 유저가 로그인을 시도함(GET)
+  2. 유저가 로그아웃을 함(POST로 로그아웃)
+  3. 유저가 다시 로그인을 함
+    1. 라우터가 GET을 최적화하여 이전에 발급된 토큰을 돌려줌
+2. GET이 아님. READ
+  1. 값을 받는다고 해서, 다 READ는 아님.
+  2. POST comments/ => {newCommentId: 'asdf'}
+  3. GET의 기준: 값을 받는다(X) 값의 쓰기가 이루어지지 않는다(O)
+  4. 토큰을 생성할때는 DB에 새로운 토큰을 저장하고 그것을 돌려주는 것이니까 POST임.
+
+
+READ, WRITE(READ)
+READ => READ만 일어남
+WRITE => WRITE도 일어남(READ도 일어날 수 있음)
+
+***
+
+백엔드에서는 어떤 일이 일어날까?
+
+*****************************************************************
+
+JS 비동기 아주 옛날: async\await도 없고, Promise도 없음. 순수 콜백(콜백 지옥)
+
+// 1세대
+nationalDb.fetchData((error, nationalData) => {
+  calculationServer.calculate(nationalData, (error, calculatedData) => {
+    google.sendData(calculatedData, (error, renderContents) => {
+      render(renderContents);
+    })
+  })
+})
+
+// 2세대
+Promise.then()
+
+추하다.
+
+nationalDb.fetchData()
+  .then((nationalData) => {
+    return calculationServer.calculate(nationalData);
+  })
+  .then((calculatedData))
+  .catch((error) => {
+    // 에러처리
+  })
+
+// 3세대 async/await
+
+// 모든 await는 async 함수 안에서만 가능하다.
+// 모든 async 함수는 비동기 함수이고, 동기 함수에서는 리턴값과 에러에 접근할 수 없다.
+const nationalData = await nationalDb.fetchData();
+const calculatedData = await calculationServer.calculate(nationalData);
+const renderContents = await google.render(calculatedData);
+
+// 동기(바로 준다)
+const nationalData = nationalDb.fetchData();
+const calculatedData = calculationServer.calculate(nationalData);
+const renderContents = google.render(calculatedData);
+
+
+try {
+  fetchData();
+} catch (error) {
+  // 에러가 안 잡힘
+}
+
+시스템 에러 핸들러가 에러를 잡음.(기본동작: 꺼짐)
+try {
+  fn();
+} catch (error) {
+  res.status(500).send(template());
+}
+
+const middleware = (req, res, next) => {
+  next(error);
+};
