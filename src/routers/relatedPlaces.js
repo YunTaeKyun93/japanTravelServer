@@ -22,33 +22,34 @@ router.post(
       1;
     if (!checkAnimeId) {
       res.status(401).send({
-        errorMessage: "해당 ID를 가진 애니메이션을 찾을 수 없습니다"
+        errorMessage: "해당 ID를 가진 애니메이션을 찾을 수 없습니다",
       });
     }
     if (!checkPlaceId) {
       res.status(401).send({
-        errorMessage: "해당 ID를 가진 장소를 찾을 수 없습니다"
+        errorMessage: "해당 ID를 가진 장소를 찾을 수 없습니다",
       });
     }
 
     const relatedPlace = new RelatedPlace({
       anime: anime._id,
-      place: place._id
+      place: place._id,
     });
     await relatedPlace.save();
     res.send({
-      message: "요청 완료"
+      message: "요청 완료",
     });
   })
 );
 
-
 router.get(
-  "/",
+  "/:id",
   catchAsync(async (req, res) => {
-    const relatedPlaces = await RelatedPlace.find({}).exec();
-    console.log('relatedPlaces',relatedPlaces)
-    res.send(relatedPlaces);
+    const place = req.params.id;
+    const relatedPlace = await RelatedPlace.find({
+      place
+    }).exec();
+    res.send(relatedPlace);
   })
 );
 
